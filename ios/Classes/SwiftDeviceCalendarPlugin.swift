@@ -361,7 +361,7 @@ public class SwiftDeviceCalendarPlugin: NSObject, FlutterPlugin, EKEventViewDele
         
         let recurrenceRule = parseEKRecurrenceRules(ekEvent)
         let event = Event(
-            eventId: ekEvent.eventIdentifier,
+            eventId: ekEvent.eventIdentifier ?? "",
             calendarId: calendarId,
             eventTitle: ekEvent.title ?? "New Event",
             eventDescription: ekEvent.notes,
