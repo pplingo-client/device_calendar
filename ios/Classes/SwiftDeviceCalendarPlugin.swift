@@ -440,72 +440,74 @@ public class SwiftDeviceCalendarPlugin: NSObject, FlutterPlugin, EKEventViewDele
     private func parseEKRecurrenceRules(_ ekEvent: EKEvent) -> RecurrenceRule? {
         var recurrenceRule: RecurrenceRule?
         if ekEvent.hasRecurrenceRules {
-            let ekRecurrenceRule = ekEvent.recurrenceRules![0]
-            var frequency: Int
-            switch ekRecurrenceRule.frequency {
-            case EKRecurrenceFrequency.daily:
-                frequency = 0
-            case EKRecurrenceFrequency.weekly:
-                frequency = 1
-            case EKRecurrenceFrequency.monthly:
-                frequency = 2
-            case EKRecurrenceFrequency.yearly:
-                frequency = 3
-            default:
-                frequency = 0
-            }
-            
-            var totalOccurrences: Int?
-            var endDate: Int64?
-            if(ekRecurrenceRule.recurrenceEnd?.occurrenceCount != nil  && ekRecurrenceRule.recurrenceEnd?.occurrenceCount != 0) {
-                totalOccurrences = ekRecurrenceRule.recurrenceEnd?.occurrenceCount
-            }
-            
-            let endDateMs = ekRecurrenceRule.recurrenceEnd?.endDate?.millisecondsSinceEpoch
-            if(endDateMs != nil) {
-                endDate = Int64(exactly: endDateMs!)
-            }
-            
-            var weekOfMonth = ekRecurrenceRule.setPositions?.first?.intValue
-            
-            var daysOfWeek: [Int]?
-            if ekRecurrenceRule.daysOfTheWeek != nil && !ekRecurrenceRule.daysOfTheWeek!.isEmpty {
-                daysOfWeek = []
-                for dayOfWeek in ekRecurrenceRule.daysOfTheWeek! {
-                    daysOfWeek!.append(dayOfWeek.dayOfTheWeek.rawValue - 1)
-                    
-                    if weekOfMonth == nil {
-                        weekOfMonth = dayOfWeek.weekNumber
+            if (ekEvent.recurrenceRules != nil && (ekEvent.recurrenceRules?.count ?? 0) > 0) {
+                let ekRecurrenceRule = ekEvent.recurrenceRules![0]
+                var frequency: Int
+                switch ekRecurrenceRule.frequency {
+                case EKRecurrenceFrequency.daily:
+                    frequency = 0
+                case EKRecurrenceFrequency.weekly:
+                    frequency = 1
+                case EKRecurrenceFrequency.monthly:
+                    frequency = 2
+                case EKRecurrenceFrequency.yearly:
+                    frequency = 3
+                default:
+                    frequency = 0
+                }
+
+                var totalOccurrences: Int?
+                var endDate: Int64?
+                if(ekRecurrenceRule.recurrenceEnd?.occurrenceCount != nil  && ekRecurrenceRule.recurrenceEnd?.occurrenceCount != 0) {
+                    totalOccurrences = ekRecurrenceRule.recurrenceEnd?.occurrenceCount
+                }
+
+                let endDateMs = ekRecurrenceRule.recurrenceEnd?.endDate?.millisecondsSinceEpoch
+                if(endDateMs != nil) {
+                    endDate = Int64(exactly: endDateMs!)
+                }
+
+                var weekOfMonth = ekRecurrenceRule.setPositions?.first?.intValue
+
+                var daysOfWeek: [Int]?
+                if ekRecurrenceRule.daysOfTheWeek != nil && !ekRecurrenceRule.daysOfTheWeek!.isEmpty {
+                    daysOfWeek = []
+                    for dayOfWeek in ekRecurrenceRule.daysOfTheWeek! {
+                        daysOfWeek!.append(dayOfWeek.dayOfTheWeek.rawValue - 1)
+
+                        if weekOfMonth == nil {
+                            weekOfMonth = dayOfWeek.weekNumber
+                        }
                     }
                 }
+
+                // For recurrence of nth day of nth month every year, no calendar parameters are given
+                // So we need to explicitly set them from event start date
+                var dayOfMonth = ekRecurrenceRule.daysOfTheMonth?.first?.intValue
+                var monthOfYear = ekRecurrenceRule.monthsOfTheYear?.first?.intValue
+                if (ekRecurrenceRule.frequency == EKRecurrenceFrequency.yearly
+                    && weekOfMonth == nil && dayOfMonth == nil && monthOfYear == nil) {
+                    let dateFormatter = DateFormatter()
+
+                    // Setting day of the month
+                    dateFormatter.dateFormat = "d"
+                    dayOfMonth = Int(dateFormatter.string(from: ekEvent.startDate))
+
+                    // Setting month of the year
+                    dateFormatter.dateFormat = "M"
+                    monthOfYear = Int(dateFormatter.string(from: ekEvent.startDate))
+                }
+
+                recurrenceRule = RecurrenceRule(
+                    recurrenceFrequency: frequency,
+                    totalOccurrences: totalOccurrences,
+                    interval: ekRecurrenceRule.interval,
+                    endDate: endDate,
+                    daysOfWeek: daysOfWeek,
+                    dayOfMonth: dayOfMonth,
+                    monthOfYear: monthOfYear,
+                    weekOfMonth: weekOfMonth)
             }
-            
-            // For recurrence of nth day of nth month every year, no calendar parameters are given
-            // So we need to explicitly set them from event start date
-            var dayOfMonth = ekRecurrenceRule.daysOfTheMonth?.first?.intValue
-            var monthOfYear = ekRecurrenceRule.monthsOfTheYear?.first?.intValue
-            if (ekRecurrenceRule.frequency == EKRecurrenceFrequency.yearly
-                && weekOfMonth == nil && dayOfMonth == nil && monthOfYear == nil) {
-                let dateFormatter = DateFormatter()
-                
-                // Setting day of the month
-                dateFormatter.dateFormat = "d"
-                dayOfMonth = Int(dateFormatter.string(from: ekEvent.startDate))
-                
-                // Setting month of the year
-                dateFormatter.dateFormat = "M"
-                monthOfYear = Int(dateFormatter.string(from: ekEvent.startDate))
-            }
-            
-            recurrenceRule = RecurrenceRule(
-                recurrenceFrequency: frequency,
-                totalOccurrences: totalOccurrences,
-                interval: ekRecurrenceRule.interval,
-                endDate: endDate,
-                daysOfWeek: daysOfWeek,
-                dayOfMonth: dayOfMonth,
-                monthOfYear: monthOfYear,
-                weekOfMonth: weekOfMonth)
         }
         
         return recurrenceRule
